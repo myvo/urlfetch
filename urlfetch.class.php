@@ -8,28 +8,30 @@ class UrlFetch {
   private $base_url;
   private $auth;
   private $oauth;
+  private $timeout;
+  private $method;
 
   public $lastResponse;
-  public $timeout;
-  public $method;
   public $headers;
 
-  public function __construct($base_url, $headers = array(), $timeout = 60) {
+  public function __construct($base_url, $headers = array(), $method = 'GET', $timeout = 60) {
     if (empty($headers)) {
       $headers = $this->getHeadersDefault();
     }
 
     $this->base_url = $base_url;
+    $this->method  = $method;
     $this->headers = $headers;
     $this->timeout = $timeout;
   }
 
-  private function getHeadersDefault() {
-    $user_agent = variable_get('site_name', '') . ' (+' . $GLOBALS['base_url'] . ')';
+  public function setMethod($method) {
+    $this->method = $method;
+  }
 
+  private function getHeadersDefault() {
     $headers = array(
       "Content-type"  => "application/json",
-      "User-agent"    => $user_agent,
       "Accept"        => "application/json",
     );
 
@@ -69,7 +71,7 @@ class UrlFetch {
     );
   }
 
-  public function execute($append_url, $arguments, $data = NULL) {
+  public function execute($append_url, $arguments = array(), $data = NULL) {
     $query = http_build_query($arguments);
     $headers = $this->getHeadersToString();
     $url = $this->base_url . $append_url . ($query ? "?" . $query : "");
@@ -97,23 +99,25 @@ class UrlFetch {
 
     // Basic Authentication.
     if(!empty($this->auth)) {
-      $opts['http']['header'] = ("Authorization: Basic " . base64_encode("{$this->auth['username']}:{$this->auth['password']}")) . $opts['http']['header'];
+      $opts['http']['header'] = ("Authorization: Basic " . base64_encode("{$this->auth['username']}:{$this->auth['password']}")) . ' ' . $opts['http']['header'];
     }
     elseif (!empty($this->oauth)) {
       $_url = $this->base_url . $append_url;
-      $opts['http']['header'] = $this->buildOauth($_url, $arguments) . $opts['http']['header'];
+      $opts['http']['header'] = $this->buildOauth($_url, $arguments);
     }
 
-    $context = stream_context_create($opts);
-    $rs = file_get_contents($url, false, $context);
-
-    $opts["http"]["content"] = $data;
     $this->lastResponse = array(
       "request" => array(
         "url"   => urldecode($url),
         "http"  => $opts["http"],
       ),
     );
+
+    $context = stream_context_create($opts);
+    $rs = file_get_contents($url, false, $context);
+
+    // Just store the data structure on last request content.
+    $this->lastResponse["http"]["content"] = $data;
 
     if (empty($rs)) {
       $error = error_get_last(); // Get PHP message at here.
