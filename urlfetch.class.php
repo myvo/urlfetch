@@ -101,6 +101,7 @@ class UrlFetch {
     if(!empty($this->auth)) {
       $opts['http']['header'] = ("Authorization: Basic " . base64_encode("{$this->auth['username']}:{$this->auth['password']}")) . ' ' . $opts['http']['header'];
     }
+    // OAuth
     elseif (!empty($this->oauth)) {
       $_url = $this->base_url . $append_url;
       $opts['http']['header'] = $this->buildOauth($_url, $arguments);
@@ -116,8 +117,8 @@ class UrlFetch {
     $context = stream_context_create($opts);
     $rs = file_get_contents($url, false, $context);
 
-    // Just store the data structure on last request content.
-    $this->lastResponse["http"]["content"] = $data;
+    // Just store the data structure on the last request content.
+    $this->lastResponse["request"]["http"]["content"] = $data;
 
     if (empty($rs)) {
       $error = error_get_last(); // Get PHP message at here.
